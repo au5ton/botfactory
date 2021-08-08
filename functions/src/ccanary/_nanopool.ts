@@ -12,9 +12,10 @@ export async function reportedHashrate(address: string, worker: string): Promise
   try {
     const res = await fetch(`https://api.nanopool.org/v1/eth/reportedhashrate/${address}/${worker}`);
     const data = await res.json();
+    console.log(data)
     return data;
   }
-  finally {
+  catch(err) {
     return {
       status: false,
       error: "Error"
@@ -28,7 +29,7 @@ export async function listOfWorkers(address: string): Promise<{ status: boolean,
     const data = await res.json();
     return data;
   }
-  finally {
+  catch(err) {
     return {
       status: false,
       data: [],

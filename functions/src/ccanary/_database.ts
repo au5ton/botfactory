@@ -5,8 +5,10 @@ export interface CCanaryEntry {
   address: string;
   worker: string;
   telegram_id: number;
-  lastStatus: boolean;
+  previouslyActive: boolean;
 }
+
+type Ref = FirebaseFirestore.DocumentReference<FirebaseFirestore.DocumentData>
 
 export async function create(address: string, worker: string, telegram_id: number) {
   const db = firebase.firestore();
@@ -15,14 +17,14 @@ export async function create(address: string, worker: string, telegram_id: numbe
     address,
     worker,
     telegram_id,
-    lastStatus: (await reportedHashrate(address, worker)).status
+    previouslyActive: (await reportedHashrate(address, worker)).status
   }
 
   await db.collection('ccanary').doc().create(data);
   return data;
 }
 
-export async function get(address: string, worker: string, telegram_id: number): Promise<{ found: boolean, data?: CCanaryEntry, doc?: string }> {
+export async function get(address: string, worker: string, telegram_id: number): Promise<{ found: boolean, data?: CCanaryEntry, doc?: string, ref?: Ref }> {
   const db = firebase.firestore();
   const query = db.collection('ccanary')
     .where('address','==',address)
@@ -38,7 +40,8 @@ export async function get(address: string, worker: string, telegram_id: number):
     return {
       found: true,
       data: snap.docs[0].data() as CCanaryEntry,
-      doc: snap.docs[0].ref.path
+      doc: snap.docs[0].ref.path,
+      ref: snap.docs[0].ref,
     }
   }
 }
@@ -51,8 +54,11 @@ export async function remove(address: string, worker: string, telegram_id: numbe
   }
 }
 
-export async function getAll(): Promise<CCanaryEntry[]> {
+export async function getAll(): Promise<(CCanaryEntry & { ref: Ref })[]> {
   const db = firebase.firestore()
   const snap = await db.collection('ccanary').get()
-  return snap.docs.map(e => e.data() as CCanaryEntry)
+  return snap.docs.map(e => ({
+    ref: e.ref,
+    ...e.data() as CCanaryEntry
+  }))
 }

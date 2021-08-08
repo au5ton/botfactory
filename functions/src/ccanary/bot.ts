@@ -47,10 +47,12 @@ bot.command('register', async (ctx) => {
   if(! (await database.get(address, worker, telegram_id)).found) {
     // check if address/worker pair exists on the Nanopool API
     const workers = await nanopool.listOfWorkers(address);
-    console.log(workers)
     if(workers.status && Array.isArray(workers.data) && workers.data.findIndex(e => e.id === worker) >= 0) {
-      await database.create(address, worker, telegram_id);
+      const entry = await database.create(address, worker, telegram_id);
       ctx.reply(`You've been registered for notifications for that address ✅`)
+      if(! entry.previouslyActive) {
+        ctx.reply(`That worker is offline right now. The first notification you get for it will be after it comes back online, then to go offline again.`)
+      }
     }
     else {
       ctx.reply(`That address/worker pair could not be found on Nanopool`)
@@ -77,13 +79,13 @@ bot.command('deregister', async (ctx) => {
 
 // The actual webhook
 export const hook = functions.https.onRequest(async (request, response) => {
-  if(isTelegramSubnet(request.ip)) {
-    try {
+  try {
+    if(isTelegramSubnet(request.ip)) {
       await bot.handleUpdate(request.body)
     }
-    finally {
-      response.status(200).end()
-    }
+  }
+  finally {
+    return response.status(200).end()
   }
 });
 
@@ -93,6 +95,58 @@ export const setHook = functions.https.onRequest(async (request, response) => {
     await bot.telegram.setWebhook(WEBHOOK_URL)
   }
   finally {
-    response.status(200).end()
+    return response.status(200).end()
   }
+})
+
+async function checkAlive() {
+  try {
+    const subs = await database.getAll();
+    for(const { address, worker, telegram_id, previouslyActive, ref } of subs) {
+      try {
+        // we need to get this
+        const res = await nanopool.reportedHashrate(address, worker)
+        const exists = res.status && res.error === undefined && res.data
+        const wasDeleted = (!exists) || res.error === 'No data found'
+        const nowActive = exists && res.data && res.data > 0
+        const nowInactive = exists && res.data && res.data === 0
+
+        console.log('res?',res)
+        console.log('exists?',exists)
+        console.log('wasDeleted?', wasDeleted)
+        console.log('nowActive?',nowActive)
+        console.log('nowInactive?',nowInactive)
+
+        // check if worker was deleted by Nanopool
+        if(wasDeleted) {
+          // delete our reference, we don't want to check anymore
+          await ref.delete();
+          // tell the associated user
+          await bot.telegram.sendMessage(telegram_id, `❌ The worker "${worker}" (${address}) isn't listed by Nanopool and has been unregistered from notifications.`);
+          // go to the next worker
+          continue;
+        }
+
+        // update the state with the latest info
+        await ref.update({ 'previouslyActive': nowActive })
+
+        // send a message if the worker is currently inactive, but was active last we checked
+        if(previouslyActive && nowInactive) {
+          await bot.telegram.sendMessage(telegram_id, `🚩 The worker "${worker}" (${address}) is offline.`)
+        }
+      }
+      catch(err){}
+      
+    }
+  }
+  finally {
+    return
+  }
+}
+
+export const checkAliveSchedule = functions.pubsub.schedule('every 10 minutes').onRun(async (ctx) => await checkAlive())
+
+export const checkAliveNow = functions.https.onRequest(async (request, response) => {
+  await checkAlive();
+  return response.status(200).end();
 })
