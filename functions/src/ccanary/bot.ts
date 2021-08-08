@@ -5,10 +5,9 @@ import { config, DEBUGGING } from '../_config'
 import { isTelegramSubnet } from '../_telegramHelper'
 import * as nanopool from './_nanopool'
 import * as database from './_database'
-import * as tunnel from '../_localtunnel'
 
 const BOT_TOKEN = config.ccanary.bot_token
-const WEBHOOK_URL = `https://${config.gcp.datacenter}-${config.gcp.project_id}.cloudfunctions.net/ccanary-handle`
+const WEBHOOK_URL = `https://${config.gcp.datacenter}-${config.gcp.project_id}.cloudfunctions.net/ccanary-hook`
 
 if (BOT_TOKEN === undefined) {
   throw new TypeError('BOT_TOKEN must be provided!');
@@ -17,10 +16,11 @@ if (BOT_TOKEN === undefined) {
 const bot = new Telegraf(BOT_TOKEN);
 if(DEBUGGING) {
   (async () => {
+    const tunnel = require('../_localtunnel')
     if(! tunnel.locked()) {
       console.warn('⚡ Debugging mode enabled! Creating localtunnel.')
       const tun = await tunnel.initialize()
-      const DEBUG_HOOK = `${tun.url}/${config.gcp.project_id}/${config.gcp.datacenter}/ccanary-handle`
+      const DEBUG_HOOK = `${tun.url}/${config.gcp.project_id}/${config.gcp.datacenter}/ccanary-hook`
       console.warn(`⚡ Local tunnel created at: ${DEBUG_HOOK}`)
       bot.telegram.setWebhook(DEBUG_HOOK)
     }
@@ -76,7 +76,7 @@ bot.command('deregister', async (ctx) => {
 });
 
 // The actual webhook
-export const handle = functions.https.onRequest(async (request, response) => {
+export const hook = functions.https.onRequest(async (request, response) => {
   if(isTelegramSubnet(request.ip)) {
     try {
       await bot.handleUpdate(request.body)

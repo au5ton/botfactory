@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import * as localtunnel from 'localtunnel'
 
-const ROOT = (x: string) => path.join(__dirname, '..', '..', x,)
+const ROOT = (x: string) => path.join(__dirname, '..', x,)
 
 export async function initialize() {
   // start tunnel
