@@ -87,6 +87,7 @@ export const handle = functions.https.onRequest(async (request, response) => {
   }
 });
 
+// for setting the webhook back to production
 export const setHook = functions.https.onRequest(async (request, response) => {
   try {
     await bot.telegram.setWebhook(WEBHOOK_URL)
