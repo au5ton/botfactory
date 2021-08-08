@@ -106,10 +106,10 @@ async function checkAlive() {
       try {
         // we need to get this
         const res = await nanopool.reportedHashrate(address, worker)
-        const exists = res.status && res.error === undefined && res.data
+        const exists = res.status && res.error === undefined && res.data !== undefined
         const wasDeleted = (!exists) || res.error === 'No data found'
-        const nowActive = exists && res.data && res.data > 0
-        const nowInactive = exists && res.data && res.data === 0
+        const nowActive = exists && res.data !== undefined && res.data > 0
+        const nowInactive = exists && res.data !== undefined && res.data === 0
 
         console.log('res?',res)
         console.log('exists?',exists)

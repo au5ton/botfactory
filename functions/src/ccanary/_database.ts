@@ -12,12 +12,13 @@ type Ref = FirebaseFirestore.DocumentReference<FirebaseFirestore.DocumentData>
 
 export async function create(address: string, worker: string, telegram_id: number) {
   const db = firebase.firestore();
+  const report = await reportedHashrate(address, worker);
 
   const data: CCanaryEntry = {
     address,
     worker,
     telegram_id,
-    previouslyActive: (await reportedHashrate(address, worker)).status
+    previouslyActive: isNaN(parseInt(`${report.data}`)) ? false : report.data! > 0
   }
 
   await db.collection('ccanary').doc().create(data);
