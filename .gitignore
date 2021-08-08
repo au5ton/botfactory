@@ -106,3 +106,4 @@ dist
 # firebase
 .firebaserc
 .runtimeconfig.json
+.tunnel.lock

@@ -9,3 +9,5 @@ export const config = {
     datacenter: functions.config().gcp.datacenter,
   }
 }
+
+export const DEBUGGING = process.env.DEBUGGING === 'yes';
